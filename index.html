@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Visualização Interativa da Busca Binária</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 20px;
+            background-color: #f0f2f5;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        #controls, #inputs {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        #inputs > div {
+            margin: 10px;
+        }
+        label {
+            font-weight: bold;
+            color: #555;
+        }
+        input[type="text"], input[type="number"] {
+            width: 300px;
+            padding: 8px;
+            margin-top: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        #array-container {
+            display: flex;
+            margin-top: 40px;
+            justify-content: center;
+            align-items: flex-end;
+            flex-wrap: wrap;
+        }
+        .array-element {
+            width: 60px;
+            height: 60px;
+            border: 2px solid #888;
+            margin: 5px;
+            border-radius: 8px;
+            background-color: #fff;
+            position: relative;
+            transition: all 0.5s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            color: #333;
+            font-size: 18px;
+        }
+        .array-element.highlight {
+            transform: translateY(-10px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        .array-element.comparing {
+            background-color: #e0e0e0; /* Leve fundo cinza */
+        }
+        .index-label {
+            position: absolute;
+            top: -25px;
+            font-size: 14px;
+            color: #555;
+        }
+        .marker {
+            position: absolute;
+            bottom: -20px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .inicio {
+            color: #28a745; /* Verde */
+        }
+        .meio {
+            color: #007bff; /* Azul */
+        }
+        .fim {
+            color: #dc3545; /* Vermelho */
+        }
+        .found {
+            background-color: #ffc107 !important; /* Amarelo */
+            border-color: #ffca2c !important;
+            color: #212529 !important;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            font-size: 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        #start-btn {
+            background-color: #28a745;
+            color: #fff;
+        }
+        #next-btn {
+            background-color: #007bff;
+            color: #fff;
+        }
+        #prev-btn {
+            background-color: #ffc107;
+            color: #212529;
+        }
+        #reset-btn {
+            background-color: #dc3545;
+            color: #fff;
+        }
+        button:disabled {
+            background-color: #6c757d !important;
+            cursor: not-allowed;
+        }
+        #message {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 18px;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Visualização Interativa da Busca Binária</h1>
+
+    <div id="inputs">
+        <div>
+            <label for="array-input">Array (números separados por vírgula, ordenados):</label><br>
+            <input type="text" id="array-input" value="101,203,305,407,509,611,713">
+        </div>
+
+        <div>
+            <label for="target-input">Valor alvo:</label><br>
+            <input type="number" id="target-input" value="407">
+        </div>
+    </div>
+
+    <div id="controls">
+        <button id="start-btn">Iniciar Busca</button>
+        <button id="prev-btn" disabled>Anterior</button>
+        <button id="next-btn" disabled>Próximo</button>
+        <button id="reset-btn">Reiniciar</button>
+    </div>
+
+    <div id="array-container"></div>
+
+    <div id="message"></div>
+
+    <script>
+        const arrayInput = document.getElementById('array-input');
+        const targetInput = document.getElementById('target-input');
+        const startBtn = document.getElementById('start-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const prevBtn = document.getElementById('prev-btn');
+        const arrayContainer = document.getElementById('array-container');
+        const messageDiv = document.getElementById('message');
+
+        let array = [];
+        let target = null;
+        let steps = [];
+        let currentStep = -1;
+
+        startBtn.addEventListener('click', startSearch);
+        resetBtn.addEventListener('click', reset);
+        nextBtn.addEventListener('click', nextStep);
+        prevBtn.addEventListener('click', prevStep);
+
+        function startSearch() {
+            reset();
+            array = arrayInput.value.split(',').map(Number);
+            array.sort((a, b) => a - b); // Garantir que o array está ordenado
+            target = Number(targetInput.value);
+            if (isNaN(target)) {
+                alert('Por favor, insira um valor alvo válido.');
+                return;
+            }
+            generateSteps();
+            renderArray();
+            nextBtn.disabled = false;
+            prevBtn.disabled = true;
+            messageDiv.innerText = 'Clique em "Próximo" para avançar as etapas.';
+        }
+
+        function reset() {
+            arrayContainer.innerHTML = '';
+            messageDiv.innerText = '';
+            steps = [];
+            currentStep = -1;
+            nextBtn.disabled = true;
+            prevBtn.disabled = true;
+        }
+
+        function renderArray(highlightIndices = {}) {
+            arrayContainer.innerHTML = '';
+            array.forEach((value, index) => {
+                const element = document.createElement('div');
+                element.classList.add('array-element');
+                element.innerText = value;
+
+                // Comparação destacada
+                if (highlightIndices.comparing === index) {
+                    element.classList.add('comparing');
+                }
+
+                // Caso coincidam inicio e meio, ou meio e fim, ajuste do texto
+                if (highlightIndices.inicio === index && highlightIndices.meio === index && highlightIndices.fim === index) {
+                    const marker = document.createElement('div');
+                    marker.classList.add('marker', 'meio');
+                    marker.innerText = 'Início/Meio/Fim';
+                    element.appendChild(marker);
+                } else if (highlightIndices.inicio === index && highlightIndices.meio === index) {
+                    const marker = document.createElement('div');
+                    marker.classList.add('marker', 'meio');
+                    marker.innerText = 'Início/Meio';
+                    element.appendChild(marker);
+                } else if (highlightIndices.meio === index && highlightIndices.fim === index) {
+                    const marker = document.createElement('div');
+                    marker.classList.add('marker', 'meio');
+                    marker.innerText = 'Meio/Fim';
+                    element.appendChild(marker);
+                } else if (highlightIndices.inicio === index && highlightIndices.fim === index) {
+                    const marker = document.createElement('div');
+                    marker.classList.add('marker', 'inicio');
+                    marker.innerText = 'Início/Fim';
+                    element.appendChild(marker);
+                } else {
+                    if (highlightIndices.inicio === index) {
+                        const marker = document.createElement('div');
+                        marker.classList.add('marker', 'inicio');
+                        marker.innerText = 'Início';
+                        element.appendChild(marker);
+                    }
+                    if (highlightIndices.meio === index) {
+                        const marker = document.createElement('div');
+                        marker.classList.add('marker', 'meio');
+                        marker.innerText = 'Meio';
+                        element.appendChild(marker);
+                    }
+                    if (highlightIndices.fim === index) {
+                        const marker = document.createElement('div');
+                        marker.classList.add('marker', 'fim');
+                        marker.innerText = 'Fim';
+                        element.appendChild(marker);
+                    }
+                }
+
+                if (highlightIndices.found === index) {
+                    element.classList.add('found');
+                }
+
+                const indexLabel = document.createElement('div');
+                indexLabel.classList.add('index-label');
+                indexLabel.innerText = index;
+                element.appendChild(indexLabel);
+
+                arrayContainer.appendChild(element);
+            });
+        }
+
+        function generateSteps() {
+            let inicio = 0;
+            let fim = array.length - 1;
+            steps = [];
+
+            while (inicio <= fim) {
+                let meio = Math.floor((inicio + fim) / 2);
+                steps.push({ inicio, meio, fim, status: 'checking' });
+
+                if (array[meio] === target) {
+                    steps.push({ inicio, meio, fim, status: 'found' });
+                    return;
+                } else if (array[meio] < target) {
+                    inicio = meio + 1;
+                } else {
+                    fim = meio - 1;
+                }
+                steps.push({ inicio, meio, fim, status: 'adjusted' });
+            }
+            steps.push({ status: 'not-found' });
+        }
+
+        function nextStep() {
+            currentStep++;
+            if (currentStep >= steps.length) {
+                nextBtn.disabled = true;
+                return;
+            }
+            prevBtn.disabled = false;
+            const step = steps[currentStep];
+            processStep(step);
+        }
+
+        function prevStep() {
+            currentStep--;
+            if (currentStep < 0) {
+                prevBtn.disabled = true;
+                return;
+            }
+            nextBtn.disabled = false;
+            const step = steps[currentStep];
+            processStep(step);
+        }
+
+        function processStep(step) {
+            if (step.status === 'checking') {
+                renderArray({ inicio: step.inicio, meio: step.meio, fim: step.fim, comparing: step.meio });
+                messageDiv.innerText = `Comparando valor no índice ${step.meio} com o alvo.`;
+            } else if (step.status === 'adjusted') {
+                renderArray({ inicio: step.inicio, fim: step.fim });
+                messageDiv.innerText = `Ajustando índices: início=${step.inicio}, fim=${step.fim}.`;
+            } else if (step.status === 'found') {
+                renderArray({ found: step.meio });
+                messageDiv.innerText = `Valor encontrado no índice ${step.meio}!`;
+                nextBtn.disabled = true;
+            } else if (step.status === 'not-found') {
+                renderArray();
+                messageDiv.innerText = `Valor ${target} não encontrado no array.`;
+                nextBtn.disabled = true;
+            }
+        }
+    </script>
+
+</body>
+</html>
